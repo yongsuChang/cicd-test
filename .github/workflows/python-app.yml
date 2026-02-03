@@ -38,7 +38,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
-          context: . # 현재 위치의 파일을 소스로 사용
+          context: ./fastapi # 현재 위치의 파일을 소스로 사용
           push: true # 빌드 성공 시 자동으로 도커 허브에 업로드
           tags: "${{ secrets.DOCKERHUB_USERNAME }}/fastapi-app:latest" # 이미지 이름표
       # --- [CD 영역 끝: 도커 이미지 생성] ---
