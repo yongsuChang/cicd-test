@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build-and-deploy:
+  nginx-build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -52,7 +52,13 @@ jobs:
             sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nginx-app:latest
             sudo docker stop nginx-server || true
             sudo docker rm nginx-server || true
-            sudo docker run -d --name nginx-server -p 80:80 ${{ secrets.DOCKERHUB_USERNAME }}/nginx-app:latest
+            # 환경변수 파일 로드 및 Docker 실행 시 SERVER_HOST 주입
+            if [ -f ~/.zshrc.local ]; then
+              source ~/.zshrc.local
+            else
+              export SERVER_HOST=localhost
+            fi
+            sudo docker run -d --name nginx-server -e SERVER_HOST=$SERVER_HOST -p 80:80 ${{ secrets.DOCKERHUB_USERNAME }}/nginx-app:latest
             # 사용하지 않는 오래된 이미지 정리 (용량 확보)
             sudo docker image prune -f
 

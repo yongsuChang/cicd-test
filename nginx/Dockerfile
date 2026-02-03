@@ -14,5 +14,5 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 # 4. 80번 포트 개방
 EXPOSE 80
 
-# 5. Nginx 실행
-CMD ["nginx", "-g", "daemon off;"]
+# 5. Nginx 실행 (환경변수 SERVER_HOST가 있으면 script.js 내의 __BACKEND_URL__ 치환)
+CMD ["/bin/sh", "-c", "sed -i \"s|__BACKEND_URL__|http://${SERVER_HOST:-localhost}:8000|g\" /usr/share/nginx/html/script.js && nginx -g 'daemon off;'"]
