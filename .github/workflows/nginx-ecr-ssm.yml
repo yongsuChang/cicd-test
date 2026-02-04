@@ -51,7 +51,7 @@ jobs:
         with:
           context: ./nginx
           push: true
-          tags: ${{ steps.login-ecr.outputs.registry }}/nginx-app:latest
+          tags: "${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest"
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -59,17 +59,17 @@ jobs:
       - name: Deploy to EC2 via SSM
         run: |
           # Note: The EC2 instance must have an IAM Role with permission to access ECR (e.g., AmazonEC2ContainerRegistryReadOnly)
-          aws ssm send-command 
-            --region ${{ vars.AWS_REGION }} 
-            --document-name "AWS-RunShellScript" 
-            --targets "Key=instanceids,Values=${{ vars.INSTANCE_ID }}" 
-            --comment "Deploy Nginx via SSM from ECR" 
+          aws ssm send-command \
+            --region ${{ vars.AWS_REGION }} \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=instanceids,Values=${{ vars.INSTANCE_ID }}" \
+            --comment "Deploy Nginx via SSM from ECR" \
             --parameters 'commands=[
               "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
-              "docker pull ${{ steps.login-ecr.outputs.registry }}/nginx-app:latest",
+              "docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
               "docker stop nginx-server || true",
               "docker rm nginx-server || true",
               "if [ -f ~/.zshrc.local ]; then source ~/.zshrc.local; else export SERVER_HOST=localhost; fi",
-              "docker run -d --name nginx-server -e SERVER_HOST=$SERVER_HOST -p 80:80 ${{ steps.login-ecr.outputs.registry }}/nginx-app:latest",
+              "docker run -d --name nginx-server -e SERVER_HOST=$SERVER_HOST -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
               "docker image prune -f"
             ]'
