@@ -55,18 +55,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 6. Deploy to EC2 via SSM (ECR Version) - Wait for result
+      # 6. Deploy to EC2 via SSM (ECR Version)
       - name: Deploy to EC2 via SSM
         run: |
-          echo "Starting SSM deployment..."
-          # 1. Send Command and capture Command ID
-          COMMAND_ID=$(aws ssm send-command \
+          aws ssm send-command \
             --region ${{ vars.AWS_REGION }} \
             --document-name "AWS-RunShellScript" \
             --targets "Key=instanceids,Values=${{ vars.INSTANCE_ID }}" \
             --comment "Deploy Nginx via SSM from ECR" \
-            --query "Command.CommandId" \
-            --output text \
             --parameters 'commands=[
               "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
               "docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
@@ -75,35 +71,4 @@ jobs:
               "if [ -f ~/.zshrc.local ]; then source ~/.zshrc.local; else export SERVER_HOST=localhost; fi",
               "docker run -d --name nginx-server -e SERVER_HOST=$SERVER_HOST -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
               "docker image prune -f"
-            ]')
-
-          echo "SSM Command ID: $COMMAND_ID"
-          echo "Waiting for command execution..."
-
-          # 2. Wait for the command to complete
-          aws ssm wait command-executed \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ vars.INSTANCE_ID }}" \
-            --region ${{ vars.AWS_REGION }}
-
-          # 3. Retrieve output and status
-          OUTPUT=$(aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ vars.INSTANCE_ID }}" \
-            --region ${{ vars.AWS_REGION }} \
-            --output json)
-
-          STATUS=$(echo "$OUTPUT" | jq -r '.Status')
-          echo "Final Status: $STATUS"
-
-          # 4. Print logs
-          echo "--- Standard Output ---"
-          echo "$OUTPUT" | jq -r '.StandardOutputContent'
-          echo "--- Standard Error ---"
-          echo "$OUTPUT" | jq -r '.StandardErrorContent'
-
-          # 5. Fail the job if SSM failed
-          if [ "$STATUS" != "Success" ]; then
-            echo "SSM Deployment Failed!"
-            exit 1
-          fi
+            ]'
