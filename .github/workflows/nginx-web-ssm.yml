@@ -3,8 +3,15 @@ name: Nginx CI/CD
 on:
   push:
     branches: ["main"]
+    paths:
+      - "nginx/**"
+      - ".github/workflows/nginx-web-ssm.yml"
   pull_request:
     branches: ["main"]
+    paths:
+      - "nginx/**"
+      - ".github/workflows/nginx-web-ssm.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -55,7 +62,7 @@ jobs:
           aws ssm send-command \
             --region ap-northeast-2 \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=instanceids,Values=${{ secrets.INSTANCE_ID }}" \
+            --targets "Key=instanceids,Values=${{ vars.INSTANCE_ID }}" \
             --comment "Deploy Nginx via SSM" \
             --parameters 'commands=[
               "sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nginx-app:latest",
