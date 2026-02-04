@@ -13,6 +13,7 @@ app.add_middleware(
 )
 
 @app.get("/")
+@app.get("/api/")
 def read_root():
     return {"Hello": "World", "Status": "Success"}
 
