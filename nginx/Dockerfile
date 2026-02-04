@@ -5,12 +5,11 @@ FROM nginx:1.29.4-alpine
 RUN rm -rf /usr/share/nginx/html/*
 COPY . /usr/share/nginx/html/
 
-# 3. Nginx 템플릿 설정 (envsubst를 위해 templates 디렉토리에 복사)
-# Nginx 공식 이미지는 /etc/nginx/templates/*.template 파일을 읽어 
-# 환경변수를 치환한 뒤 /etc/nginx/conf.d/에 넣어줍니다.
-COPY templates/default.conf.template /etc/nginx/templates/default.conf.template
+# 3. Nginx 설정 복사
+COPY default.conf /etc/nginx/conf.d/default.conf
 
 # 4. 80번 포트 개방
 EXPOSE 80
 
-# 기본 실행 명령은 상속받은 이미지의 설정을 그대로 사용 (nginx -g 'daemon off;')
+# 5. 실행 시 BACKEND_ADDR 환경변수로 proxy_pass 치환
+CMD ["/bin/sh", "-c", "sed -i \"s|__BACKEND_ADDR__|${BACKEND_ADDR:-http://localhost:8000}|g\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
