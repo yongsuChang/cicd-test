@@ -3,6 +3,7 @@ name: Python application (ECR)
 on:
   push:
     branches: ["main"]
+    tags: ["v*"]
     paths:
       - "fastapi/**"
       - ".github/workflows/python-ecr-ssm.yml"
@@ -49,13 +50,31 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 3. Build and push Docker image
+      # 3. Docker Metadata for tagging
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_FASTAPI }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=ref,event=tag
+            type=sha,format=short
+
+      # 4. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 5. Build and push Docker image
       - name: Build and push Docker image
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6
         with:
           context: ./fastapi
           push: true
-          tags: "${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_FASTAPI }}:latest"
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
       # --- [End of CD: Build] ---
 
       # --- [CD: Deploy to EC2 via SSM] ---
