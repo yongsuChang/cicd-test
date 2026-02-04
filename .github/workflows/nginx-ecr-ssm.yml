@@ -72,20 +72,23 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 6. Deploy to EC2 via SSM (ECR Version)
+      # 7. Deploy to EC2 via SSM (ECR Version)
       - name: Deploy to EC2 via SSM
         run: |
+          # Load Balancer DNS를 동적으로 가져오기 (ALB_NAME 변수가 설정되어 있다고 가정)
+          # 만약 변수가 없다면 적절한 필터를 사용해야 합니다.
+          LB_DNS=$(aws elbv2 describe-load-balancers --names ${{ vars.ALB_NAME }} --query 'LoadBalancers[0].DNSName' --output text)
+          
           aws ssm send-command \
             --region ${{ vars.AWS_REGION }} \
             --document-name "AWS-RunShellScript" \
             --targets "Key=instanceids,Values=${{ vars.INSTANCE_ID }}" \
-            --comment "Deploy Nginx via SSM from ECR" \
-            --parameters 'commands=[
-              "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
-              "docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
-              "docker stop nginx-server || true",
-              "docker rm nginx-server || true",
-              "if [ -f ~/.zshrc.local ]; then source ~/.zshrc.local; else export SERVER_HOST=localhost; fi",
-              "docker run -d --name nginx-server -e SERVER_HOST=$SERVER_HOST -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
-              "docker image prune -f"
-            ]'
+            --comment "Deploy Nginx via SSM with LB DNS" \
+            --parameters "commands=[
+              \"aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}\",
+              \"docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest\",
+              \"docker stop nginx-server || true\",
+              \"docker rm nginx-server || true\",
+              \"docker run -d --name nginx-server -e BACKEND_ADDR=http://$LB_DNS:8000 -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest\",
+              \"docker image prune -f\"
+            ]"
