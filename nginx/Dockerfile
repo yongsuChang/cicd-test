@@ -12,4 +12,4 @@ COPY default.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 
 # 5. 실행 시 BACKEND_ADDR 환경변수로 proxy_pass 치환
-CMD ["/bin/sh", "-c", "sed -i \"s|__BACKEND_ADDR__|${BACKEND_ADDR:-http://localhost:8000}|g\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["/bin/sh", "-c", "sed -i \"s|http://localhost:8000|${BACKEND_ADDR:-http://localhost:8000}|g\" /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
