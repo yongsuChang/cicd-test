@@ -31,7 +31,7 @@ jobs:
       # 1. CI: Nginx Config Check
       - name: Nginx Config Check
         run: |
-          docker run --rm -v "${{ github.workspace }}/nginx":/etc/nginx/conf.d:ro nginx:latest nginx -t
+          docker run --rm --add-host=backend:127.0.0.1 -v "${{ github.workspace }}/nginx":/etc/nginx/conf.d:ro nginx:latest nginx -t
 
       # 2. Configure AWS Credentials (Required for ECR Login)
       - name: Configure AWS credentials
