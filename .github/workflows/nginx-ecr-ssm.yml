@@ -1,0 +1,75 @@
+name: Nginx CI/CD (ECR)
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "nginx/**"
+      - ".github/workflows/nginx-ecr-ssm.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "nginx/**"
+      - ".github/workflows/nginx-ecr-ssm.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nginx-build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 1. CI: Nginx Config Check
+      - name: Nginx Config Check
+        run: |
+          docker run --rm -v "${{ github.workspace }}/nginx":/etc/nginx/conf.d:ro nginx:latest nginx -t
+
+      # 2. Configure AWS Credentials (Required for ECR Login)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          aws-region: "${{ vars.AWS_REGION }}"
+
+      # 3. Login to Amazon ECR
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # 4. Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 5. Build and Push to ECR
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./nginx
+          push: true
+          tags: ${{ steps.login-ecr.outputs.registry }}/nginx-app:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 6. Deploy to EC2 via SSM (ECR Version)
+      - name: Deploy to EC2 via SSM
+        run: |
+          # Note: The EC2 instance must have an IAM Role with permission to access ECR (e.g., AmazonEC2ContainerRegistryReadOnly)
+          aws ssm send-command 
+            --region ${{ vars.AWS_REGION }} 
+            --document-name "AWS-RunShellScript" 
+            --targets "Key=instanceids,Values=${{ vars.INSTANCE_ID }}" 
+            --comment "Deploy Nginx via SSM from ECR" 
+            --parameters 'commands=[
+              "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
+              "docker pull ${{ steps.login-ecr.outputs.registry }}/nginx-app:latest",
+              "docker stop nginx-server || true",
+              "docker rm nginx-server || true",
+              "if [ -f ~/.zshrc.local ]; then source ~/.zshrc.local; else export SERVER_HOST=localhost; fi",
+              "docker run -d --name nginx-server -e SERVER_HOST=$SERVER_HOST -p 80:80 ${{ steps.login-ecr.outputs.registry }}/nginx-app:latest",
+              "docker image prune -f"
+            ]'
