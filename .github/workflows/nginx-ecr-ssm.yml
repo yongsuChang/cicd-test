@@ -89,6 +89,6 @@ jobs:
               \"docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest\",
               \"docker stop nginx-server || true\",
               \"docker rm nginx-server || true\",
-              \"docker run -d --name nginx-server -e BACKEND_ADDR=http://$LB_DNS:8000 -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest\",
+              \"docker run -d --name nginx-server -e BACKEND_ADDR=http://$LB_DNS -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest\",
               \"docker image prune -f\"
             ]"
