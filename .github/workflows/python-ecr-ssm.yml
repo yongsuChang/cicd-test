@@ -14,6 +14,10 @@ on:
       - ".github/workflows/python-ecr-ssm.yml"
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.sha }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
