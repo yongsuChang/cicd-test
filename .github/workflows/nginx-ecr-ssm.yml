@@ -80,13 +80,12 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --targets "Key=instanceids,Values=${{ vars.INSTANCE_ID }}" \
             --comment "Deploy Nginx via SSM with Internal IP" \
-            --parameters "commands=[
-              \"aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}\",
-              \"docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest\",
-              \"docker stop nginx-server || true\",
-              \"docker rm nginx-server || true\",
-              \"# 호스트의 프라이빗 IP 가져오기\",
-              \"INTERNAL_IP=\$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)\",
-              \"docker run -d --name nginx-server -e BACKEND_ADDR=http://\$INTERNAL_IP:8000 -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest\",
-              \"docker image prune -f\"
-            ]"
+            --parameters 'commands=[
+              "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
+              "docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
+              "docker stop nginx-server || true",
+              "docker rm nginx-server || true",
+              "INTERNAL_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)",
+              "docker run -d --name nginx-server -e BACKEND_ADDR=http://$INTERNAL_IP:8000 -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
+              "docker image prune -f"
+            ]'
