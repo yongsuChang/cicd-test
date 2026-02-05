@@ -77,10 +77,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           # 1. Get Launch Template ID from Tags
-          LT_ID=$(aws ec2 describe-launch-templates 
-            --filters "Name=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE }}" 
-            --query 'LaunchTemplates[0].LaunchTemplateId' 
-            --output text)
+          LT_ID=$(aws ec2 describe-launch-templates --filters "Name=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE }}" --query 'LaunchTemplates[0].LaunchTemplateId' --output text)
           
           if [ "$LT_ID" == "None" ] || [ -z "$LT_ID" ]; then
             echo "Error: Launch Template not found with tags ${{ vars.ASG_TAG_KEY }}=${{ vars.ASG_TAG_VALUE }}"
@@ -90,20 +87,11 @@ jobs:
 
           # 2. Create new Launch Template Version
           # Just creating a new version from Latest to ensure we have a unique deployment event.
-          # We rely on the UserData in the Launch Template to pull the 'latest' image we just pushed.
-          NEW_VER=$(aws ec2 create-launch-template-version 
-            --launch-template-id $LT_ID 
-            --source-version '$Latest' 
-            --version-description "Deploy ${{ github.sha }}" 
-            --query 'LaunchTemplateVersion.VersionNumber' 
-            --output text)
+          NEW_VER=$(aws ec2 create-launch-template-version --launch-template-id $LT_ID --source-version '$Latest' --version-description "Deploy ${{ github.sha }}" --query 'LaunchTemplateVersion.VersionNumber' --output text)
           echo "Created Launch Template Version: $NEW_VER"
 
           # 3. Find ASG using this Launch Template
-          # This query looks for ASGs where the LaunchTemplate ID matches
-          ASG_NAME=$(aws autoscaling describe-auto-scaling-groups 
-            --query "AutoScalingGroups[?LaunchTemplate.LaunchTemplateId=='$LT_ID'].AutoScalingGroupName" 
-            --output text)
+          ASG_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[?LaunchTemplate.LaunchTemplateId=='$LT_ID'].AutoScalingGroupName" --output text)
             
           if [ "$ASG_NAME" == "None" ] || [ -z "$ASG_NAME" ]; then
             echo "Error: No Auto Scaling Group found using Launch Template ID $LT_ID"
@@ -112,14 +100,9 @@ jobs:
           echo "Found Auto Scaling Group: $ASG_NAME"
 
           # 4. Update ASG to use the new Launch Template Version
-          aws autoscaling update-auto-scaling-group 
-            --auto-scaling-group-name $ASG_NAME 
-            --launch-template "LaunchTemplateId=$LT_ID,Version=$NEW_VER"
+          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $ASG_NAME --launch-template "LaunchTemplateId=$LT_ID,Version=$NEW_VER"
 
           # 5. Trigger Instance Refresh
-          # This gracefully replaces instances.
-          aws autoscaling start-instance-refresh 
-            --auto-scaling-group-name $ASG_NAME 
-            --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 300}'
+          aws autoscaling start-instance-refresh --auto-scaling-group-name $ASG_NAME --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 300}'
           
           echo "Deployment initiated. Instance Refresh started for $ASG_NAME."
