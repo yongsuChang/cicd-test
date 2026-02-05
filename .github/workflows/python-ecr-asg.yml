@@ -41,7 +41,6 @@ jobs:
       # --- [End of CI] ---
 
       # --- [CD: Build & Push to ECR] ---
-      # 1. Configure AWS Credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -49,12 +48,10 @@ jobs:
           aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           aws-region: "${{ vars.AWS_REGION }}"
 
-      # 2. Login to Amazon ECR
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # 3. Docker Metadata for tagging
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -65,11 +62,9 @@ jobs:
             type=ref,event=tag
             type=sha,format=short
 
-      # 4. Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 5. Build and push Docker image
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
@@ -79,38 +74,20 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      # --- [End of CD: Build] ---
 
-      # --- [CD: Deploy to ASG] ---
-      - name: Deploy to ASG
+      # --- [CD: Deploy to ASG instances via SSM (Tag-based)] ---
+      - name: Deploy to EC2 via SSM
         if: github.event_name != 'pull_request'
         run: |
-          # 1. Get Launch Template ID from Tags
-          LT_ID=$(aws ec2 describe-launch-templates --filters "Name=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE }}" --query 'LaunchTemplates[0].LaunchTemplateId' --output text)
-          
-          if [ "$LT_ID" == "None" ] || [ -z "$LT_ID" ]; then
-            echo "Error: Launch Template not found with tags ${{ vars.ASG_TAG_KEY }}=${{ vars.ASG_TAG_VALUE }}"
-            exit 1
-          fi
-          echo "Found Launch Template ID: $LT_ID"
-
-          # 2. Create new Launch Template Version
-          NEW_VER=$(aws ec2 create-launch-template-version --launch-template-id $LT_ID --source-version '$Latest' --version-description "Deploy ${{ github.sha }}" --query 'LaunchTemplateVersion.VersionNumber' --output text)
-          echo "Created Launch Template Version: $NEW_VER"
-
-          # 3. Find ASG using this Launch Template
-          ASG_NAME=$(aws autoscaling describe-auto-scaling-groups --query "AutoScalingGroups[?LaunchTemplate.LaunchTemplateId=='$LT_ID'].AutoScalingGroupName" --output text)
-            
-          if [ "$ASG_NAME" == "None" ] || [ -z "$ASG_NAME" ]; then
-            echo "Error: No Auto Scaling Group found using Launch Template ID $LT_ID"
-            exit 1
-          fi
-          echo "Found Auto Scaling Group: $ASG_NAME"
-
-          # 4. Update ASG to use the new Launch Template Version
-          aws autoscaling update-auto-scaling-group --auto-scaling-group-name $ASG_NAME --launch-template "LaunchTemplateId=$LT_ID,Version=$NEW_VER"
-
-          # 5. Trigger Instance Refresh
-          aws autoscaling start-instance-refresh --auto-scaling-group-name $ASG_NAME --preferences '{"MinHealthyPercentage": 50, "InstanceWarmup": 300}'
-          
-          echo "Deployment initiated. Instance Refresh started for $ASG_NAME."
+          aws ssm send-command \
+            --region ${{ vars.AWS_REGION }} \
+            --document-name "AWS-RunShellScript" \
+            --targets "Key=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE }}" \
+            --comment "Deploy FastAPI to ASG instances via SSM" \
+            --parameters 'commands=[
+              "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
+              "docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_FASTAPI }}:latest",
+              "docker stop fastapi-server || true",
+              "docker rm fastapi-server || true",
+              "docker run -d --name fastapi-server -p 8000:8000 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_FASTAPI }}:latest"
+            ]'
