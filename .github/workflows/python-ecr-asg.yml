@@ -82,12 +82,12 @@ jobs:
           aws ssm send-command \
             --region ${{ vars.AWS_REGION }} \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE }}" \
+            --targets "Key=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE_FASTAPI }}" \
             --comment "Deploy FastAPI to ASG instances via SSM" \
             --parameters 'commands=[
               "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
               "docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_FASTAPI }}:latest",
               "docker stop fastapi-server || true",
               "docker rm fastapi-server || true",
-              "docker run -d --name fastapi-server -p 8000:8000 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_FASTAPI }}:latest"
+              "docker run -d --name fastapi-server -p 8001:8000 -e DB_HOST=\"${{ secrets.DB_HOST }}\" -e DB_USER=\"${{ secrets.DB_USER }}\" -e DB_PASSWORD=\"${{ secrets.DB_PASSWORD }}\" ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_FASTAPI }}:latest"
             ]'

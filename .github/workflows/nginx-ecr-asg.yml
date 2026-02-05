@@ -79,13 +79,13 @@ jobs:
           aws ssm send-command \
             --region ${{ vars.AWS_REGION }} \
             --document-name "AWS-RunShellScript" \
-            --targets "Key=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE }}" \
+            --targets "Key=tag:${{ vars.ASG_TAG_KEY }},Values=${{ vars.ASG_TAG_VALUE_NGINX }}" \
             --comment "Deploy Nginx to ASG instances via SSM" \
             --parameters 'commands=[
               "aws ecr get-login-password --region ${{ vars.AWS_REGION }} | docker login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}",
               "docker pull ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
               "docker stop nginx-server || true",
               "docker rm nginx-server || true",
-              "docker run -d --name nginx-server --add-host=backend:host-gateway -p 80:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
+              "docker run -d --name nginx-server --add-host=backend:host-gateway -p 81:80 ${{ steps.login-ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY_NGINX }}:latest",
               "docker image prune -f"
             ]'
