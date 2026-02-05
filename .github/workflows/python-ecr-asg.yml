@@ -2,7 +2,7 @@ name: Python application (ASG)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "teamwork"]
     tags: ["v*"]
     paths:
       - "fastapi/**"
