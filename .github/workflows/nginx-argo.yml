@@ -42,8 +42,8 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # k8s 폴더 내의 모든 .yaml과 .yml 파일을 찾아서 이미지 업데이트
-          # 현재 프로젝트의 ECR 리포지토리 변수를 사용합니다.
-          find k8s -name "*.y*ml" -exec sed -i "s|image: .*/${{ vars.ECR_REPOSITORY_NGINX }}:.*|image: $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_NGINX }}:$IMAGE_TAG|g" {} +
+          # 'stand-alone-nginx' 문자열이 포함된 이미지 라인을 찾아서 확실하게 교체합니다.
+          find k8s -name "*.y*ml" -exec sed -i "s|image: .*stand-alone-nginx.*|image: $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_NGINX }}:$IMAGE_TAG|g" {} +
 
           # 변경된 사항이 있을 때만 Git 작업을 진행합니다.
           git config --global user.name 'github-actions'
