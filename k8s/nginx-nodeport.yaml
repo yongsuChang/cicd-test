@@ -1,0 +1,116 @@
+# ---------------------------------------------------------
+# 1. Service: 외부에서 접속 가능한 로드밸런서(대문) 정의
+# ---------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-project-svc # 서비스의 이름
+spec:
+  type: NodePort # AWS의 로드밸런서 서비스와 연동하겠다는 타입 선언
+  selector:
+    app: web-project # [중요] 같은 라벨을 가진 파드들로 트래픽을 전달
+  ports:
+    # 리스너 설정
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+    # - name: custom-port
+    #   protocol: TCP
+    #   port: 8000
+    #   targetPort: 8000
+---
+# ---------------------------------------------------------
+# 2. Ingress: 외부에서 접속 가능한 로드밸런서(대문) 정의
+# ---------------------------------------------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-project-svc
+  annotations:
+    # ALB 클래스 지정 (최신 방식은 spec.ingressClassName을 쓰지만 annotation도 작동함)
+    kubernetes.io/ingress.className: alb
+
+    # 외부 노출 및 타겟 설정
+    alb.ingress.kubernetes.io/scheme: internet-facing # internet-facing(외부공개)/internal(내부)
+    alb.ingress.kubernetes.io/target-type: instance # instance 또는 ip(파드 직접 지정, VPC CNI환경이 완벽해야 함)
+
+    # 보안 그룹
+    alb.ingress.kubernetes.io/security-groups: sg-0ed1dcd5fe74aa622
+
+    # 4. 헬스체크 설정
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+
+    # 기타 속성 (ALB 전용 표기법)
+    alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60
+
+    # ALB가 여러 포트를 관리할 때 필요한 설정
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTP": 8000}]'
+spec:
+  ingressClassName: alb # ALB Ingress Controller 사용
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-project-svc # 서비스 이름과 일치해야 함
+                port:
+                  number: 80
+          # - path: /api
+          #   pathType: Prefix
+          #   backend:
+          #     service:
+          #       name: web-project-svc # 서비스 이름과 일치해야 함
+          #       port:
+          #         number: 8000
+---
+# ---------------------------------------------------------
+# 3. Deployment: 애플리케이션(Nginx) 컨테이너 실행 정의
+# ---------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-deployment # 이 배포의 이름
+spec:
+  replicas: 2 # [요청 개수] 처음에 띄울 파드의 개수 (요청하신 2개)
+  selector:
+    matchLabels:
+      app: web-project # 이 라벨이 붙은 파드들을 관리하겠다는 선언
+  template:
+    metadata:
+      labels:
+        app: web-project # [중요] 생성될 파드에 부여할 라벨 (위의 selector와 일치해야 함)
+    spec:
+      containers:
+        - name: nginx
+          image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/stand-alone-nginx:latest
+          ports:
+            - containerPort: 80
+          resources: # [중요] HPA가 CPU 사용량을 계산하기 위한 기준 설정
+            # 예약
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            # 한계
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+
+        # - name: fastapi
+        #   image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/fastapi-app:latest
+        #   ports:
+        #     - containerPort: 8000
+        #   resources:
+        #     # 예약
+        #     requests:
+        #       cpu: "100m"
+        #       memory: "128Mi"
+        #     # 한계
+        #     limits:
+        #       cpu: "500m"
+        #       memory: "256Mi"
+        #
