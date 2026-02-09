@@ -1,8 +1,12 @@
-name: Build and Push to ECR
+name: Build and Push Nginx to ECR
 
 on:
   push:
     branches: ["main"]
+    paths:
+      - "nginx/**"
+      - ".github/workflows/nginx-argo.yml"
+      - "k8s/nginx-nodeport.yaml"
 
 permissions:
   contents: write
@@ -19,7 +23,7 @@ jobs:
         with:
           aws-access-key-id: "${{ secrets.AWS_ACCESS_KEY_ID }}"
           aws-secret-access-key: "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
-          aws-region: "${{vars.AWS_REGION}}"
+          aws-region: "${{ vars.AWS_REGION }}"
 
       - name: Login to Amazon ECR
         id: login-ecr
@@ -33,33 +37,23 @@ jobs:
           docker build -t $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_NGINX }}:${IMAGE_TAG} ./nginx
           docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_NGINX }}:${IMAGE_TAG}
 
-      # ==========================================================
-      # 핵심 추가 단계: k8s 폴더의 YAML 파일을 수정하여 ArgoCD에게 배포를 지시합니다.
-      # ==========================================================
-      - name: Update K8s Manifests (ArgoCD Trigger)
+      - name: Update K8s Manifest (ArgoCD Trigger)
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # k8s 폴더 내의 모든 .yaml과 .yml 파일을 찾아서 이미지 업데이트
-          find k8s -name "*.y*ml" -exec sed -i "s|image: .*${{ vars.ECR_REPOSITORY_NGINX }}:.*|image: $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_NGINX }}:$IMAGE_TAG|g" {} +
+          # Nginx 매니페스트 파일만 명확하게 수정
+          sed -i "s|image: .*${{ vars.ECR_REPOSITORY_NGINX }}:.*|image: $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_NGINX }}:$IMAGE_TAG|g" k8s/nginx-nodeport.yaml
 
-          # 변경된 사항이 있을 때만 Git 작업을 진행합니다.
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
 
-          # 변경된 yaml 파일들만 스테이징
-          git add k8s/*.y*ml || echo "No files to add"
+          git add k8s/nginx-nodeport.yaml
 
-          # 변경 사항이 있는지 확인 후 커밋 (변경 사항 없으면 건너뜀)
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            # [skip ci]를 넣어 자동화 커밋이 다시 Action을 실행시키지 않게 합니다.
-            git commit -m "Auto-deploy: update image tags [skip ci]"
-
-            # 다른 작업과 충돌 방지를 위해 pull 후 push 합니다.
+            git commit -m "Auto-deploy: update nginx image tag [skip ci]"
             git pull --rebase origin main
             git push origin main
           fi
-

@@ -6,6 +6,7 @@ on:
     paths:
       - "fastapi/**"
       - ".github/workflows/fastapi-argo.yml"
+      - "k8s/fastapi-deployment.yaml"
 
 permissions:
   contents: write
@@ -36,19 +37,19 @@ jobs:
           docker build -t $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_FASTAPI }}:${IMAGE_TAG} ./fastapi
           docker push $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_FASTAPI }}:${IMAGE_TAG}
 
-      - name: Update K8s Manifests (ArgoCD Trigger)
+      - name: Update K8s Manifest (ArgoCD Trigger)
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # k8s/fastapi-deployment.yaml 파일의 이미지 태그 업데이트
+          # FastAPI 매니페스트 파일만 명확하게 수정
           sed -i "s|image: .*${{ vars.ECR_REPOSITORY_FASTAPI }}:.*|image: $ECR_REGISTRY/${{ vars.ECR_REPOSITORY_FASTAPI }}:$IMAGE_TAG|g" k8s/fastapi-deployment.yaml
 
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
 
           git add k8s/fastapi-deployment.yaml
-          
+
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
