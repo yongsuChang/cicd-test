@@ -87,7 +87,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/stand-alone-nginx:latest
+          image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/nginx-app:d289672d17aedb054a7ca54f123ee70f8fa321cc
           ports:
             - containerPort: 80
           resources: # [중요] HPA가 CPU 사용량을 계산하기 위한 기준 설정
