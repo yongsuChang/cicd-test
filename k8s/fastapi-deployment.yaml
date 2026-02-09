@@ -55,7 +55,7 @@ spec:
               service:
                 name: fastapi-app-svc # 서비스 이름과 일치해야 함
                 port:
-                  number: 80
+                  number: 8000
 ---
 # ---------------------------------------------------------
 # 3. Deployment: 애플리케이션(fastapi) 컨테이너 실행 정의
@@ -63,7 +63,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cluster-deployment # 이 배포의 이름
+  name: fastapi-deployment # 이 배포의 이름
 spec:
   replicas: 2 # [요청 개수] 처음에 띄울 파드의 개수 (요청하신 2개)
   selector:
