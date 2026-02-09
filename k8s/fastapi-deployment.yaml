@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: fastapi
-          image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/fastapi-app:latest
+          image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/fastapi-app:09fba2deb1fb8ad6d01a76ea7e5122f0f8caced7
           ports:
             - containerPort: 8000
           resources:
