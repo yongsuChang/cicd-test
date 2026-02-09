@@ -76,7 +76,7 @@ spec:
     spec:
       containers:
         - name: fastapi
-          image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/fastapi-app:5d7362c337156f76f566ea49c46351aac305a60d
+          image: 161203794945.dkr.ecr.ap-northeast-2.amazonaws.com/yongsuchang/fastapi-app:f41439740f6115c21ff9d37dab335190372014d5
           ports:
             - containerPort: 8000
           resources: # [중요] HPA가 CPU 사용량을 계산하기 위한 기준 설정
