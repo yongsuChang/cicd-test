@@ -43,7 +43,7 @@ metadata:
     alb.ingress.kubernetes.io/load-balancer-attributes: idle_timeout.timeout_seconds=60
 
     # ALB가 여러 포트를 관리할 때 필요한 설정
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTP": 8000}]'
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
 spec:
   ingressClassName: alb # ALB Ingress Controller 사용
   rules:
@@ -56,13 +56,6 @@ spec:
                 name: web-project-svc # 서비스 이름과 일치해야 함
                 port:
                   number: 80
-          # - path: /api
-          #   pathType: Prefix
-          #   backend:
-          #     service:
-          #       name: web-project-svc # 서비스 이름과 일치해야 함
-          #       port:
-          #         number: 8000
 ---
 # ---------------------------------------------------------
 # 3. Deployment: 애플리케이션(Nginx) 컨테이너 실행 정의
